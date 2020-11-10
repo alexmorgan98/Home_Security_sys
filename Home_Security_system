@@ -1,0 +1,122 @@
+#define trigPin 8 
+#define echoPin 7 
+#define Rled 2 
+#define Yled 3 
+#define Gled 4 
+#define buzzer 10  
+#define photocell A0
+#define autoLight 6 
+#define NOTE_E7  2637
+#define NOTE_C7  2093
+#define waterSignal A1
+#define waterLight 5
+#include "DHT.h" //include DHT 11 library
+#define DHTPIN 13 // Digital pin connected to the DHT sensor
+#define DHTTYPE DHT11 // Define type of DHT sensor
+DHT dht(DHTPIN, DHTTYPE); // Initialize DHT sensor
+#define hotLight 12
+#define coldLight 11
+int RedAlert[] = {
+  NOTE_E7, NOTE_C7, NOTE_E7, NOTE_C7, NOTE_E7, NOTE_C7
+};
+int RAduration[] = {
+  500, 500 , 500, 500 , 500, 500 ,
+};
+ 
+void setup() { 
+Serial.begin(9600); // Sets the baud rate for logging 
+Serial.println("CEIS101 Final System");
+Serial.println("Name: Alex Morgan");
+pinMode(trigPin, OUTPUT); 
+pinMode(echoPin, INPUT); 
+pinMode(Rled, OUTPUT); 
+pinMode(Yled, OUTPUT); 
+pinMode(Gled, OUTPUT); 
+pinMode(buzzer, OUTPUT); 
+pinMode(autoLight, OUTPUT); 
+pinMode(waterLight, OUTPUT);
+dht.begin();
+pinMode(hotLight, OUTPUT);
+pinMode(coldLight, OUTPUT);
+} 
+
+void loop() {
+//=== Temperature Humidity Sensor ===
+  float humidity = dht.readHumidity();
+  float temperature = dht.readTemperature(true);
+  Serial.print(F("Humidity: "));
+  Serial.print(humidity);
+  Serial.print(F("%  Temperature in Fahrenheit: "));
+  Serial.println(temperature);
+  if (temperature >= 82) {
+    digitalWrite(hotLight, HIGH);
+    digitalWrite(coldLight, LOW);
+  }
+  else {
+    digitalWrite(hotLight, LOW);
+    digitalWrite(coldLight, HIGH);
+  }
+// === Water Sensor ===
+int waterValue=analogRead(waterSignal); // Read the value of the WaterSensor
+if (waterValue > 600){ // Alert condition
+  analogWrite(waterLight, 255); // 100% duty cycle
+  Serial.println("Alert! Water Detected!"); 
+}
+else if(waterValue <= 600 and waterValue > 300){ // Warning condition
+  analogWrite(waterLight, 64);// 25% duty cycle
+  Serial.println("Warning! Water Detected!"); 
+}
+else{ // No water condition
+  analogWrite(waterLight, 0);// 0% duty cycle
+}
+//=== Automated Light === 
+int photocellvalue=analogRead(photocell);
+if (photocellvalue > 900) {  
+  Serial.println("Light is ON!");
+  digitalWrite(autoLight, HIGH); 
+} 
+else { 
+  digitalWrite(autoLight, LOW); 
+}   
+{//==== Distance Sensor === 
+long duration, distance, inches; 
+digitalWrite(trigPin, LOW);
+delayMicroseconds(2);
+digitalWrite(trigPin, HIGH);
+delayMicroseconds(10);
+digitalWrite(trigPin, LOW);
+// Read the echo signal
+duration = pulseIn(echoPin, HIGH); // Read duration for roundtrip distance
+distance = (duration /2) * 0.0135 ; // Convert duration to one way distance in units of inches
+if (distance < 100){ // Filter noise to show readings only less than 100 inches 
+  if (distance <= 6) {  // Alert condition
+    Serial.println("Alert! Intruder!");
+    digitalWrite(Rled, HIGH); // Alert red LED on
+    digitalWrite(Yled, LOW);
+    digitalWrite(Gled, LOW);
+  // add additional alert sounds
+    for (int thisTone = 0; thisTone < 6; thisTone++) { // Alert array counter, thisTone = n
+      tone(buzzer, RedAlert[thisTone], RAduration[thisTone]); // plays the tones in array at n
+      delay(RAduration[thisTone]);
+      noTone(buzzer);
+    }
+  } 
+  else if (distance <12 and distance > 6){  // Warning range condition
+    Serial.println("Warning! Intruder!");
+    digitalWrite(Rled, LOW);
+    digitalWrite(Yled, HIGH);  // Warning yellow LED on
+    digitalWrite(Gled, LOW);
+    tone(buzzer, 392,100); // Emit tone at 50 Hz for duration of 100 milliseconds
+  }   
+  else{ //Safe condition 
+    digitalWrite(Rled, LOW);
+    digitalWrite(Yled, LOW);
+    digitalWrite(Gled, HIGH);  // Safe distance green LED on
+    digitalWrite(buzzer, LOW); 
+  }// end of else 
+
+} //end of distance filter
+
+delay(1000); //pause program to stabilize ultrasonic sensor readings
+}
+} //end of loop
